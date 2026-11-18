@@ -34,6 +34,7 @@ xcodebuild -project FineTune.xcodeproj -scheme FineTune \
     PROVISIONING_PROFILE_SPECIFIER= ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
     MARKETING_VERSION=1.9.0 CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
     'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) FINETUNE_FORK_BUILD' \
+    'OTHER_LDFLAGS=$(inherited) -Wl,-dead_strip_dylibs' \
     build
 
 STAGING_DIR="$(mktemp -d "$PROJECT_DIR/build/fork-package.XXXXXX")"
@@ -46,6 +47,11 @@ ditto --norsrc --noextattr "$DERIVED_DATA/Build/Products/Release/FineTune.app" "
 # from the distributed metadata too, so this package identifies no update server.
 /usr/libexec/PlistBuddy -c 'Delete :SUFeedURL' "$PACKAGE_DIR/FineTune.app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c 'Delete :SUPublicEDKey' "$PACKAGE_DIR/FineTune.app/Contents/Info.plist"
+if otool -L "$PACKAGE_DIR/FineTune.app/Contents/MacOS/FineTune" | grep -q '/Sparkle.framework/'; then
+    echo 'Fork binary still loads Sparkle; refusing to package an incompatible updater.' >&2
+    exit 1
+fi
+rm -rf "$PACKAGE_DIR/FineTune.app/Contents/Frameworks/Sparkle.framework"
 codesign --force --sign - --timestamp=none \
     --preserve-metadata=entitlements,flags,requirements "$PACKAGE_DIR/FineTune.app"
 codesign --verify --deep --strict --verbose=2 "$PACKAGE_DIR/FineTune.app"
@@ -78,7 +84,7 @@ Source commit: $SOURCE_COMMIT
 License: GNU GPL version 3; see LICENSE and the corresponding source repository.
 EOF
 
-ditto -c -k --sequesterRsrc --keepParent "$PACKAGE_DIR" "$OUTPUT_DIR/$ASSET_NAME.zip"
+ditto -c -k --norsrc --noextattr --keepParent "$PACKAGE_DIR" "$OUTPUT_DIR/$ASSET_NAME.zip"
 ln -s /Applications "$PACKAGE_DIR/Applications"
 hdiutil create -volname 'FineTune AirPods Preview' -srcfolder "$PACKAGE_DIR" \
     -format UDZO -ov "$OUTPUT_DIR/$ASSET_NAME.dmg"
