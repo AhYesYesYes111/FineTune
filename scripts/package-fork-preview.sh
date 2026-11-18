@@ -52,6 +52,10 @@ if otool -L "$PACKAGE_DIR/FineTune.app/Contents/MacOS/FineTune" | grep -q '/Spar
     exit 1
 fi
 rm -rf "$PACKAGE_DIR/FineTune.app/Contents/Frameworks/Sparkle.framework"
+# Finder may recreate bundle metadata while staging. Remove only the two
+# metadata attributes codesign rejects, from our generated copy.
+xattr -dr com.apple.FinderInfo "$PACKAGE_DIR/FineTune.app" 2>/dev/null || true
+xattr -dr com.apple.ResourceFork "$PACKAGE_DIR/FineTune.app" 2>/dev/null || true
 codesign --force --sign - --timestamp=none \
     --preserve-metadata=entitlements,flags,requirements "$PACKAGE_DIR/FineTune.app"
 codesign --verify --deep --strict --verbose=2 "$PACKAGE_DIR/FineTune.app"
@@ -85,6 +89,8 @@ License: GNU GPL version 3; see LICENSE and the corresponding source repository.
 EOF
 
 ditto -c -k --norsrc --noextattr --keepParent "$PACKAGE_DIR" "$OUTPUT_DIR/$ASSET_NAME.zip"
+ditto -x -k "$OUTPUT_DIR/$ASSET_NAME.zip" "$STAGING_DIR/archive-check"
+codesign --verify --deep --strict --verbose=2 "$STAGING_DIR/archive-check/FineTune-AirPods-Preview/FineTune.app"
 ln -s /Applications "$PACKAGE_DIR/Applications"
 hdiutil create -volname 'FineTune AirPods Preview' -srcfolder "$PACKAGE_DIR" \
     -format UDZO -ov "$OUTPUT_DIR/$ASSET_NAME.dmg"
