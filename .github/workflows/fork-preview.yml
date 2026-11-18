@@ -1,0 +1,40 @@
+name: Publish AirPods Preview
+
+on:
+  push:
+    tags:
+      - 'airpods-preview-*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: airpods-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'AhYesYesYes111/FineTune'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Build and verify preview packages
+        env:
+          PREVIEW_TAG: ${{ github.ref_name }}
+          FINETUNE_BUILD_NUMBER: ${{ github.run_number }}
+        run: bash scripts/package-fork-preview.sh "$PREVIEW_TAG"
+      - name: Publish downloadable prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_TAG: ${{ github.ref_name }}
+        run: |
+          PACKAGE_DIR="build/downloads/$PREVIEW_TAG"
+          gh release create "$PREVIEW_TAG" \
+            --verify-tag --prerelease \
+            --title "FineTune AirPods Preview — $PREVIEW_TAG" \
+            --notes-file "$PACKAGE_DIR/RELEASE-NOTES.txt" \
+            "$PACKAGE_DIR"/*.dmg "$PACKAGE_DIR"/*.zip \
+            "$PACKAGE_DIR/SHA256SUMS.txt"

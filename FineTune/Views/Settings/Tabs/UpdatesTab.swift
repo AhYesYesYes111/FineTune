@@ -5,8 +5,11 @@ import SwiftUI
 struct UpdatesTab: View {
     @ObservedObject var updateManager: UpdateManager
 
+    private var version: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
     private var lastCheckDescription: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         if let date = updateManager.lastUpdateCheckDate {
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .abbreviated
@@ -26,25 +29,36 @@ struct UpdatesTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 SettingsSection("Software Updates") {
-                    SettingsRow(
-                        "Automatic updates",
-                        description: "Check for new versions automatically"
-                    ) {
-                        Toggle("", isOn: automaticallyChecksBinding)
-                            .toggleStyle(.switch)
-                            .controlSize(.small)
-                            .labelsHidden()
-                    }
-                    SettingsRowDivider()
-                    SettingsRow(
-                        "Last checked",
-                        description: lastCheckDescription
-                    ) {
-                        Button("Check Now") {
-                            updateManager.checkForUpdates()
+                    if UpdateManager.isEnabled {
+                        SettingsRow(
+                            "Automatic updates",
+                            description: "Check for new versions automatically"
+                        ) {
+                            Toggle("", isOn: automaticallyChecksBinding)
+                                .toggleStyle(.switch)
+                                .controlSize(.small)
+                                .labelsHidden()
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                        SettingsRowDivider()
+                        SettingsRow(
+                            "Last checked",
+                            description: lastCheckDescription
+                        ) {
+                            Button("Check Now") {
+                                updateManager.checkForUpdates()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    } else {
+                        SettingsRow(
+                            "Manual updates",
+                            description: "Version \(version) · Install new versions from GitHub Releases"
+                        ) {
+                            Link("Open Releases", destination: URL(string: "https://github.com/AhYesYesYes111/FineTune/releases")!)
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
                     }
                 }
             }
